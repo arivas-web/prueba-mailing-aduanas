@@ -1,0 +1,68 @@
+name: Email Sensor → HubSpot Sync
+
+on:
+  repository_dispatch:
+    types: [email_received]
+  workflow_dispatch:
+    inputs:
+      test_email_json:
+        description: 'Email JSON para testing'
+        required: false
+        type: string
+
+jobs:
+  process-email:
+    runs-on: ubuntu-latest
+    name: Procesar Email y Sincronizar con HubSpot
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: 📥 Obtener código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🔧 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: 📦 Instalar dependencias
+        run: |
+          npm install --prefix ./scripts axios dotenv
+
+      - name: 📧 Procesar Email y Sincronizar HubSpot
+        id: sync
+        env:
+          EMAIL_DATA: ${{ github.event.client_payload.email }}
+          HUBSPOT_API_KEY: ${{ secrets.HUBSPOT_API_KEY }}
+          HUBSPOT_PORTAL_ID: ${{ secrets.HUBSPOT_PORTAL_ID }}
+          HUBSPOT_TEMPLATE_NAME: 'Visual Trans 2026'
+          TEST_MODE: ${{ github.event.inputs.test_email_json != '' }}
+          TEST_EMAIL_JSON: ${{ github.event.inputs.test_email_json }}
+        run: |
+          node ./scripts/sync-email-to-hubspot.js
+
+      - name: ✅ Registrar Resultado
+        if: always()
+        run: |
+          echo "## 📊 Resultado de Sincronización" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Estado**: ${{ steps.sync.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Email procesado**: ${{ steps.sync.outputs.email_subject }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🔔 Notificar error (si aplica)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '❌ Error en Email Sensor → HubSpot Sync',
+              body: `La sincronización de email a HubSpot falló.\n\nWorkflow: ${context.workflow}\nRun: ${context.runId}`,
+              labels: ['bug', 'automation']
+            })

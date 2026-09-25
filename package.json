@@ -1,0 +1,25 @@
+{
+  "name": "email-sensor-hubspot-sync",
+  "version": "1.0.0",
+  "description": "Sensor de emails slopezvigo@gmail.com → HubSpot Visual Trans 2026",
+  "main": "scripts/sync-email-to-hubspot.js",
+  "scripts": {
+    "sync": "node scripts/sync-email-to-hubspot.js",
+    "test": "node scripts/sync-email-to-hubspot.js",
+    "setup": "node scripts/setup-google-apps-script.js"
+  },
+  "keywords": [
+    "email",
+    "sensor",
+    "hubspot",
+    "automation",
+    "google-apps-script"
+  ],
+  "author": "Visual Trans Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0"
+  },
+  "devDependencies": {}
+}
