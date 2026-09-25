@@ -4,9 +4,11 @@
   "description": "Sensor de emails slopezvigo@gmail.com → HubSpot Visual Trans 2026",
   "main": "scripts/sync-email-to-hubspot.js",
   "scripts": {
+    "setup": "node scripts/setup-automation.js",
+    "deploy-secrets": "bash scripts/deploy-github-secrets.sh",
+    "validate": "node scripts/validate-setup.js",
     "sync": "node scripts/sync-email-to-hubspot.js",
-    "test": "node scripts/sync-email-to-hubspot.js",
-    "setup": "node scripts/setup-google-apps-script.js"
+    "test": "node scripts/sync-email-to-hubspot.js"
   },
   "keywords": [
     "email",
