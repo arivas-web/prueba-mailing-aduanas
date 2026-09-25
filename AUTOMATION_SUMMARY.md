@@ -182,7 +182,7 @@ Una vez configurado:
 ```
 1. Email llega a slopezvigo@gmail.com
         ↓
-2. Google Apps Script lo detecta (cada 5 min)
+2. Google Apps Script lo detecta (cada 5 min), solo si el asunto contiene "correo aeat"
         ↓
 3. Extrae contenido completo
         ↓
@@ -192,14 +192,12 @@ Una vez configurado:
         ↓
 6. Node.js script procesa el email
         ↓
-7. HubSpot API crea:
-   - Contacto (o actualiza si existe)
-   - Deal en "Visual Trans 2026"
-   - Ticket con contenido del email
+7. HubSpot API clona la plantilla "Visual Trans 2026" y pega el email tal cual
+   (NO crea contactos, deals ni tickets)
         ↓
-8. Gmail marca email con label "Procesado-HubSpot"
+8. Gmail marca email con label "Procesado-HubSpot-AEAT"
         ↓
-9. No se procesa nuevamente
+9. TÚ revisas el borrador en HubSpot y lo envías manualmente
 ```
 
 ---

@@ -111,8 +111,8 @@ async function getEnvironmentConfig() {
     log.warn('Token no parece válido (debería empezar con ghp_)');
   }
 
-  config.GITHUB_WEBHOOK_URL = 'https://' + config.GITHUB_TOKEN + '@api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches';
-  log.success('URL de webhook generada');
+  config.GITHUB_WEBHOOK_URL = 'https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches';
+  log.success('URL de webhook generada (el token va en header, no en la URL)');
 
   config.HUBSPOT_API_KEY = await prompt('\nHubSpot API Key (pat-na1-...):');
   if (!config.HUBSPOT_API_KEY.startsWith('pat-')) {
@@ -209,11 +209,13 @@ function setupProperties() {
   const properties = PropertiesService.getScriptProperties();
 
   properties.setProperty('GITHUB_WEBHOOK_URL', '${config.GITHUB_WEBHOOK_URL}');
+  properties.setProperty('GITHUB_TOKEN', '${config.GITHUB_TOKEN}');
   properties.setProperty('DRIVE_FOLDER_ID', '${config.DRIVE_FOLDER_ID || ''}');
   properties.setProperty('ADMIN_EMAIL', '${config.ADMIN_EMAIL}');
 
   Logger.log('✅ Properties configuradas:');
-  Logger.log('- GITHUB_WEBHOOK_URL: ' + properties.getProperty('GITHUB_WEBHOOK_URL').substring(0, 30) + '...');
+  Logger.log('- GITHUB_WEBHOOK_URL: ' + properties.getProperty('GITHUB_WEBHOOK_URL'));
+  Logger.log('- GITHUB_TOKEN: ' + (properties.getProperty('GITHUB_TOKEN') ? 'configurado' : 'NO CONFIGURADO'));
   Logger.log('- DRIVE_FOLDER_ID: ' + (properties.getProperty('DRIVE_FOLDER_ID') || 'NO CONFIGURADO'));
   Logger.log('- ADMIN_EMAIL: ' + properties.getProperty('ADMIN_EMAIL'));
 }
@@ -279,7 +281,7 @@ function generateGasInstructions(config) {
 
 1. Ve a: https://script.google.com/
 2. Click "Nuevo proyecto"
-3. Nombre: "Email Sensor slopezvigo"
+3. Nombre: "Email Sensor arivas-aeat"
 4. OK
 
 ## Paso 2: Copiar Código
@@ -316,13 +318,13 @@ Deberías ver en los logs:
 
 Opción A - Automático (desde Google Apps Script):
 \`\`\`javascript
-createLabelIfNotExists('Procesado-HubSpot');
+createLabelIfNotExists('Procesado-HubSpot-AEAT');
 \`\`\`
 
 Opción B - Manual en Gmail:
-1. Ve a https://mail.google.com/ (con slopezvigo@gmail.com)
+1. Ve a https://mail.google.com/ (con arivas@visualtrans.com)
 2. Configuración → Etiquetas
-3. Crear etiqueta: "Procesado-HubSpot"
+3. Crear etiqueta: "Procesado-HubSpot-AEAT"
 
 ## Paso 6: Crear Trigger
 
@@ -352,7 +354,7 @@ Deberías ver:
 
 ## Éxito! 🎉
 
-El sensor está listo. Espera 5 minutos y envía un email de prueba a slopezvigo@gmail.com
+El sensor está listo. Espera 5 minutos y envía un email de prueba a arivas@visualtrans.com
 `;
 
   const gasPath = path.join(__dirname, '..', 'SETUP_GOOGLE_APPS_SCRIPT.md');

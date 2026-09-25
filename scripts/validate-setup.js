@@ -179,14 +179,14 @@ function validateSyncScript() {
   const syncPath = path.join(__dirname, '..', 'scripts/sync-email-to-hubspot.js');
   const syncContent = fs.readFileSync(syncPath, 'utf8');
 
-  const hasUpsertContact = syncContent.includes('upsertContact');
-  const hasCreateDeal = syncContent.includes('createDeal');
-  const hasCreateTicket = syncContent.includes('createTicket');
+  const hasFindTemplate = syncContent.includes('findTemplateEmail');
+  const hasCloneTemplate = syncContent.includes('cloneTemplateEmail');
+  const hasFillDraft = syncContent.includes('fillDraftWithEmailContent');
   const hasHubspotUrl = syncContent.includes('HUBSPOT_API_URL');
 
-  check('upsertContact function', hasUpsertContact);
-  check('createDeal function', hasCreateDeal);
-  check('createTicket function', hasCreateTicket);
+  check('findTemplateEmail function', hasFindTemplate);
+  check('cloneTemplateEmail function', hasCloneTemplate);
+  check('fillDraftWithEmailContent function', hasFillDraft);
   check('HubSpot API URL configured', hasHubspotUrl);
 }
 
@@ -220,7 +220,7 @@ function printSummary() {
     console.log('Próximos pasos:');
     console.log('1. Abre Google Apps Script y copia el código');
     console.log('2. Ejecuta setupEmailSensor()');
-    console.log('3. Envía email de prueba a slopezvigo@gmail.com');
+    console.log('3. Envía email de prueba a arivas@visualtrans.com');
     console.log('4. Verifica en HubSpot después de 5 minutos');
   } else if (percentage >= 80) {
     console.log(`${colors.yellow}⚠️ Sistema casi configurado, faltan algunos detalles${colors.reset}`);

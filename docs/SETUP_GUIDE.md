@@ -2,11 +2,18 @@
 
 ## 📋 Descripción General
 
-Este sistema detecta automáticamente emails enviados a **slopezvigo@gmail.com** y los sincroniza con HubSpot en la plantilla **"Visual Trans 2026"**.
+> ⚠️ **Nota:** Esta guía describe el setup general de la infraestructura
+> (Google Apps Script + GitHub Actions + HubSpot). El comportamiento actual
+> es más simple de lo que describen algunas secciones de abajo: **solo se
+> procesan emails cuyo asunto contiene "correo aeat"**, y el resultado final
+> es **únicamente un borrador de email en HubSpot** (no se crean contactos,
+> deals ni tickets). Ver `README.md` y `QUICK_DEPLOY.md` para el flujo exacto.
+
+Este sistema detecta automáticamente emails enviados a **arivas@visualtrans.com** (con "correo aeat" en el asunto) y genera un borrador en HubSpot con la plantilla **"Visual Trans 2026"**.
 
 **Arquitectura:**
 ```
-Gmail (slopezvigo@gmail.com)
+Gmail (arivas@visualtrans.com)
          ↓
 Google Apps Script (Sensor)
          ↓
@@ -31,7 +38,7 @@ HubSpot API
 ### 1.2 Crear Script en Google Apps Script
 
 1. Ve a [Google Apps Script](https://script.google.com/)
-2. Crea un nuevo proyecto: `Email Sensor slopezvigo`
+2. Crea un nuevo proyecto: `Email Sensor arivas-aeat`
 3. Elimina el contenido por defecto
 4. Copia el contenido de `google-apps-script/EmailSensor.gs`
 5. Pega el código
@@ -109,10 +116,7 @@ En el repositorio → **Settings → Secrets and variables → Actions**:
 1. Ve a [HubSpot Integrations](https://app.hubspot.com/personal-access-key)
 2. Crea una nueva clave privada
 3. Scopes necesarios:
-   - `crm.objects.contacts.write`
-   - `crm.objects.contacts.read`
-   - `crm.objects.deals.write`
-   - `crm.objects.tickets.write`
+   - `content` (lectura/escritura de Marketing Email, para clonar la plantilla y crear el borrador)
 4. Copia la clave
 5. En GitHub, crea secret: `HUBSPOT_API_KEY` = [tu clave]
 
@@ -151,7 +155,7 @@ Deberías ver:
   "timestamp": "2026-09-25T10:00:00Z",
   "from": "test@example.com",
   "subject": "Email de prueba",
-  "to": "slopezvigo@gmail.com",
+  "to": "arivas@visualtrans.com",
   "cc": "",
   "plainText": "Este es un email de prueba",
   "htmlBody": "<p>Este es un email de prueba</p>",
@@ -168,7 +172,7 @@ Verifica en HubSpot que se creó el contacto, deal y ticket.
 
 ## 🔄 Flujo de Operación
 
-### Cuando llega un email a slopezvigo@gmail.com:
+### Cuando llega un email a arivas@visualtrans.com:
 
 1. **Google Apps Script (cada 5 minutos)**
    - Busca emails sin procesar
@@ -185,12 +189,12 @@ Verifica en HubSpot que se creó el contacto, deal y ticket.
      - ✅ Asocia todo
 
 3. **HubSpot**
-   - El contacto aparece con fuente: `email_sensor_slopezvigo`
+   - El contacto aparece con fuente: `email_sensor_arivas-aeat`
    - Deal en estado: `negotiation`
    - Ticket con el contenido completo del email
 
 4. **Google Apps Script**
-   - Marca el email con label: `Procesado-HubSpot`
+   - Marca el email con label: `Procesado-HubSpot-AEAT`
    - No lo procesa nuevamente
 
 ---
@@ -227,7 +231,7 @@ checkNewEmails(); // Ejecuta manualmente
 
 **Causa:** El script procesó el email 2 veces
 
-**Solución:** Marcar manualmente con label `Procesado-HubSpot` en Gmail
+**Solución:** Marcar manualmente con label `Procesado-HubSpot-AEAT` en Gmail
 
 ---
 
@@ -239,12 +243,12 @@ En Google Apps Script:
 
 ```javascript
 // Ver emails pendientes
-const query = 'to:slopezvigo@gmail.com -label:Procesado-HubSpot';
+const query = 'to:arivas@visualtrans.com -label:Procesado-HubSpot-AEAT';
 const count = GmailApp.search(query).length;
 Logger.log('📊 Emails pendientes: ' + count);
 
 // Ver historial de procesamiento
-const processed = GmailApp.search('to:slopezvigo@gmail.com label:Procesado-HubSpot').length;
+const processed = GmailApp.search('to:arivas@visualtrans.com label:Procesado-HubSpot-AEAT').length;
 Logger.log('✅ Emails procesados: ' + processed);
 ```
 
@@ -256,9 +260,8 @@ Logger.log('✅ Emails procesados: ' + processed);
 
 ### En HubSpot
 
-- **Contactos**: filtrar por `source = email_sensor_slopezvigo`
-- **Deals**: filtrar por `pipeline = Visual Trans 2026`
-- **Tickets**: filtrar por `category = incoming_email`
+- Ve a **Marketing → Email**
+- Busca los borradores cuyo nombre empieza por `[AEAT]`
 
 ---
 

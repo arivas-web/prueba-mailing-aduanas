@@ -1,4 +1,4 @@
-name: Email Sensor → HubSpot Sync
+name: Email AEAT → Borrador HubSpot
 
 on:
   repository_dispatch:
@@ -13,7 +13,7 @@ on:
 jobs:
   process-email:
     runs-on: ubuntu-latest
-    name: Procesar Email y Sincronizar con HubSpot
+    name: Generar Borrador en HubSpot
 
     permissions:
       contents: read
@@ -33,13 +33,14 @@ jobs:
         run: |
           npm install --prefix ./scripts axios dotenv
 
-      - name: 📧 Procesar Email y Sincronizar HubSpot
+      - name: 📧 Generar Borrador en HubSpot
         id: sync
         env:
           EMAIL_DATA: ${{ github.event.client_payload.email }}
           HUBSPOT_API_KEY: ${{ secrets.HUBSPOT_API_KEY }}
           HUBSPOT_PORTAL_ID: ${{ secrets.HUBSPOT_PORTAL_ID }}
           HUBSPOT_TEMPLATE_NAME: 'Visual Trans 2026'
+          HUBSPOT_BODY_WIDGET_NAME: ${{ vars.HUBSPOT_BODY_WIDGET_NAME }}
           TEST_MODE: ${{ github.event.inputs.test_email_json != '' }}
           TEST_EMAIL_JSON: ${{ github.event.inputs.test_email_json }}
         run: |
@@ -48,11 +49,13 @@ jobs:
       - name: ✅ Registrar Resultado
         if: always()
         run: |
-          echo "## 📊 Resultado de Sincronización" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Resultado" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Estado**: ${{ steps.sync.outcome }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "- **Email procesado**: ${{ steps.sync.outputs.email_subject }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Borrador HubSpot ID**: ${{ steps.sync.outputs.hubspot_email_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Acción requerida**: revisar y enviar manualmente en HubSpot" >> $GITHUB_STEP_SUMMARY
 
       - name: 🔔 Notificar error (si aplica)
         if: failure()
@@ -62,7 +65,7 @@ jobs:
             github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: '❌ Error en Email Sensor → HubSpot Sync',
-              body: `La sincronización de email a HubSpot falló.\n\nWorkflow: ${context.workflow}\nRun: ${context.runId}`,
+              title: '❌ Error generando borrador AEAT en HubSpot',
+              body: `La generación del borrador en HubSpot falló.\n\nWorkflow: ${context.workflow}\nRun: ${context.runId}`,
               labels: ['bug', 'automation']
             })

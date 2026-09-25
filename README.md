@@ -1,17 +1,17 @@
-# 📧 Email Sensor → HubSpot Visual Trans 2026
+# 📧 Email AEAT → Borrador HubSpot
 
-**Sistema automático de sincronización de emails** que detecta mensajes enviados a `slopezvigo@gmail.com` y los replica en HubSpot.
+**Sistema automático** que detecta emails de la AEAT recibidos en `arivas@visualtrans.com` y genera un **borrador** en la plantilla de HubSpot **"Visual Trans 2026"** con el contenido pegado tal cual. **No se envía nada automáticamente** — el envío final lo hace la persona manualmente desde HubSpot.
 
 ---
 
-## ✨ Features
+## ✨ Cómo Funciona
 
-- ✅ **Sensor en tiempo real** - Detecta emails cada 5 minutos
-- ✅ **Sin intervención manual** - Automatización completa
-- ✅ **Sincronización HubSpot** - Crea contactos, deals y tickets
-- ✅ **Gestión de adjuntos** - Guarda archivos en Google Drive
-- ✅ **Logs y monitoreo** - GitHub Actions + Google Apps Script
-- ✅ **Tolerancia a errores** - Reintentos automáticos
+1. Llega un email a `arivas@visualtrans.com`
+2. **Solo se procesa si el asunto contiene "correo aeat"** (no distingue mayúsculas/minúsculas)
+3. Se genera un **borrador** en HubSpot, clonando la plantilla "Visual Trans 2026"
+4. El contenido del email se pega **tal cual** en el borrador
+5. **No se crean contactos, deals ni tickets. No se envía nada.**
+6. La persona revisa el borrador en HubSpot y lo envía cuando quiera
 
 ---
 
@@ -19,13 +19,13 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│      Gmail: slopezvigo@gmail.com        │
+│    Gmail: arivas@visualtrans.com        │
 └──────────────┬──────────────────────────┘
-               │
+               │  asunto contiene "correo aeat"
                ↓ (cada 5 min)
 ┌─────────────────────────────────────────┐
 │    Google Apps Script                   │
-│    • Detecta emails nuevos              │
+│    • Filtra por remitente + asunto      │
 │    • Extrae contenido completo          │
 │    • Envía webhook a GitHub             │
 └──────────────┬──────────────────────────┘
@@ -33,15 +33,15 @@
                ↓ (repository_dispatch)
 ┌─────────────────────────────────────────┐
 │    GitHub Actions Workflow              │
-│    • Email Sensor → HubSpot Sync        │
-│    • Ejecuta Node.js script             │
+│    • Genera Borrador en HubSpot         │
 └──────────────┬──────────────────────────┘
                │
                ↓ (API calls)
 ┌─────────────────────────────────────────┐
 │    HubSpot                              │
-│    • Visual Trans 2026 Pipeline         │
-│    • Contactos, Deals, Tickets          │
+│    • Clona plantilla "Visual Trans 2026"│
+│    • Pega el email tal cual (BORRADOR)  │
+│    • NO se envía                        │
 └─────────────────────────────────────────┘
 ```
 
@@ -49,40 +49,19 @@
 
 ## 🚀 Quick Start
 
-### 1. Clonar Repositorio
-```bash
-git clone https://github.com/arivas-web/prueba-mailing-aduanas.git
-cd prueba-mailing-aduanas
-```
+Ver **[QUICK_DEPLOY.md](QUICK_DEPLOY.md)** para el setup paso a paso.
 
-### 2. Instalar Dependencias
+Resumen:
+
 ```bash
 npm install
+npm run setup           # Pide credenciales (GitHub Token, HubSpot API Key/Portal ID)
+npm run deploy-secrets  # Configura los secrets en GitHub
+npm run validate        # Verifica que todo esté correcto
 ```
 
-### 3. Configurar Secretos
-```bash
-cp .env.example .env
-
-# Edita .env con tus valores:
-# - GITHUB_TOKEN
-# - HUBSPOT_API_KEY
-# - HUBSPOT_PORTAL_ID
-```
-
-### 4. Desplegar Google Apps Script
-- Ve a [Google Apps Script](https://script.google.com/)
-- Crea nuevo proyecto
-- Copia contenido de `google-apps-script/EmailSensor.gs`
-- Configura disparador (trigger)
-- Ver detalles en [SETUP_GUIDE.md](docs/SETUP_GUIDE.md)
-
-### 5. Configurar GitHub Actions Secrets
-En repositorio → Settings → Secrets:
-```
-HUBSPOT_API_KEY = pat-na1-...
-HUBSPOT_PORTAL_ID = 123456789
-```
+Después, despliega manualmente el Google Apps Script en la cuenta de Google
+que gestiona `arivas@visualtrans.com` (ver `docs/GOOGLE_APPS_SCRIPT_SETUP.md`).
 
 ---
 
@@ -90,18 +69,17 @@ HUBSPOT_PORTAL_ID = 123456789
 
 ```
 prueba-mailing-aduanas/
-├── .github/
-│   └── workflows/
-│       └── email-to-hubspot.yml          # Workflow principal
+├── .github/workflows/
+│   └── email-to-hubspot.yml          # Workflow: genera el borrador
 ├── google-apps-script/
-│   └── EmailSensor.gs                    # Script de monitoreo
+│   └── EmailSensor.gs                # Filtra por asunto "correo aeat"
 ├── scripts/
-│   └── sync-email-to-hubspot.js          # Sincronización HubSpot
+│   └── sync-email-to-hubspot.js      # Clona plantilla y pega el email
 ├── docs/
-│   └── SETUP_GUIDE.md                    # Guía de configuración
-├── .env.example                          # Variables de ejemplo
-├── package.json                          # Dependencias
-└── README.md                             # Este archivo
+│   └── SETUP_GUIDE.md
+├── .env.example
+├── package.json
+└── README.md
 ```
 
 ---
@@ -111,207 +89,79 @@ prueba-mailing-aduanas/
 ### 📧 Google Apps Script
 **Archivo:** `google-apps-script/EmailSensor.gs`
 
-Responsabilidades:
-- Monitorear carpeta de entrada de slopezvigo@gmail.com
-- Extraer: asunto, remitente, cuerpo, adjuntos
-- Enviar webhook a GitHub Actions
-- Marcar emails procesados
+- Corre en la cuenta de Google que gestiona `arivas@visualtrans.com`
+- Busca cada 5 minutos: `to:arivas@visualtrans.com subject:"correo aeat"`
+- Ignora cualquier otro email (aunque llegue a la misma cuenta)
+- Envía el email completo como `repository_dispatch` a GitHub
 
 ### 🚀 GitHub Actions
 **Archivo:** `.github/workflows/email-to-hubspot.yml`
 
-Responsabilidades:
-- Recibir webhook del sensor
-- Orquestar el flujo de sincronización
-- Registrar logs y resultados
-- Notificar errores
+- Recibe el webhook y ejecuta `sync-email-to-hubspot.js`
+- Publica un resumen del resultado en el Job Summary
 
 ### 🔄 Sync Script
 **Archivo:** `scripts/sync-email-to-hubspot.js`
 
-Responsabilidades:
-- Procesar datos del email
-- Crear/actualizar contacto en HubSpot
-- Crear deal en BORRADOR en "Visual Trans 2026"
-- Crear ticket en BORRADOR asociado
-- TÚ revisa, completas y envías en HubSpot
+- Busca la plantilla `"Visual Trans 2026"` en HubSpot (Marketing Email API)
+- La **clona** (queda como borrador nuevo, no toca la plantilla original)
+- Pega el contenido del email (HTML u texto plano) en el módulo de contenido
+  configurado (`HUBSPOT_BODY_WIDGET_NAME`, por defecto `email_body`)
+- **No crea contactos, deals ni tickets**
+- **No envía el borrador** — eso lo hace la persona en HubSpot
 
----
-
-## 📊 Flujo de Datos
-
-### 1️⃣ Email Llega a slopezvigo@gmail.com
-```
-De: cliente@empresa.com
-Asunto: Consulta sobre servicios
-Contenido: ...
-```
-
-### 2️⃣ Google Apps Script Detecta
-```javascript
-checkNewEmails()
-// Encuentra email sin label "Procesado-HubSpot"
-// Extrae datos completos
-// Envía webhook
-```
-
-### 3️⃣ GitHub Actions Procesa
-```bash
-# Workflow: Email Sensor → HubSpot Sync
-# Ejecuta: sync-email-to-hubspot.js
-```
-
-### 4️⃣ HubSpot Actualiza
-```
-✅ Contacto: cliente@empresa.com
-✅ Deal: "Email: Consulta sobre servicios"
-✅ Ticket: Email completo guardado
-```
-
----
-
-## 🧪 Testing
-
-### Test en Google Apps Script
-```javascript
-// En el editor de Google Apps Script
-testEmailSensor();
-```
-
-### Test en GitHub Actions
-```bash
-# Manual workflow dispatch
-gh workflow run email-to-hubspot.yml \
-  -f test_email_json='{"from":"test@example.com","subject":"Test","..."}'
-```
-
-### Test Local
-```bash
-# Requiere variables de entorno configuradas
-TEST_MODE=true node scripts/sync-email-to-hubspot.js
-```
+> ⚠️ El nombre del módulo (`email_body`) depende de cómo esté montada la
+> plantilla real en HubSpot. Si el borrador se crea pero el contenido no
+> aparece pegado, ajusta la variable `HUBSPOT_BODY_WIDGET_NAME` al nombre
+> real del módulo de esa plantilla.
 
 ---
 
 ## 📋 Configuración Requerida
 
-### Google Cloud Platform
-- [ ] Project creado
-- [ ] Google Apps Script API habilitada
-- [ ] OAuth 2.0 credentials configuradas
+### GitHub Secrets
+- `HUBSPOT_API_KEY` — Private App Token con scope de escritura sobre `marketing-email`
+- `HUBSPOT_PORTAL_ID` — Portal ID de HubSpot (opcional, solo para el link del resumen)
 
-### GitHub
-- [ ] Personal Access Token creado (scopes: repo, workflow)
-- [ ] Secrets configurados: HUBSPOT_API_KEY, HUBSPOT_PORTAL_ID
+### GitHub Variables (opcional)
+- `HUBSPOT_BODY_WIDGET_NAME` — nombre del módulo de contenido en la plantilla, si es distinto de `email_body`
 
-### HubSpot
-- [ ] Personal Access Key con scopes:
-  - `crm.objects.contacts.read`
-  - `crm.objects.contacts.write`
-  - `crm.objects.deals.write`
-  - `crm.objects.tickets.write`
-- [ ] Pipeline "Visual Trans 2026" creado
-
-### Google Apps Script
-- [ ] Script desplegado
-- [ ] Properties configuradas (GITHUB_WEBHOOK_URL)
-- [ ] Trigger "checkNewEmails" cada 5 minutos
-- [ ] Label "Procesado-HubSpot" creado
+### Google Apps Script (Properties)
+- `GITHUB_WEBHOOK_URL` = `https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches`
+- `GITHUB_TOKEN` = tu Personal Access Token de GitHub (scopes `repo` + `workflow`)
+- `ADMIN_EMAIL` = `arivas@visualtrans.com`
+- `DRIVE_FOLDER_ID` (opcional, solo si quieres guardar adjuntos)
 
 ---
 
-## 🔐 Seguridad
+## 🧪 Testing
 
-### Secretos
-- ✅ Almacenados en GitHub Secrets (nunca en código)
-- ✅ Almacenados en Properties Service (Google Apps Script)
-- ✅ No se exponen en logs
+```bash
+# Test local con un email de ejemplo
+TEST_MODE=true TEST_EMAIL_JSON='{
+  "subject": "Correo AEAT - Notificación",
+  "from": "notificaciones@aeat.es",
+  "to": "arivas@visualtrans.com",
+  "timestamp": "2026-09-25T10:00:00Z",
+  "plainText": "Contenido de prueba",
+  "htmlBody": "<p>Contenido de prueba</p>"
+}' HUBSPOT_API_KEY=xxx node scripts/sync-email-to-hubspot.js
+```
 
-### Autenticación
-- ✅ OAuth 2.0 en Google
-- ✅ Tokens en Headers
-- ✅ API Keys en Bearer tokens
-
-### Datos
-- ✅ Emails completos encriptados en Drive
-- ✅ Acceso solo a slopezvigo@gmail.com
-- ✅ Labels para auditoría
-
----
-
-## 📈 Monitoreo
-
-### En Google Apps Script
+En Google Apps Script:
 ```javascript
-// Ver emails pendientes
-GmailApp.search('to:slopezvigo@gmail.com -label:Procesado-HubSpot').length
-
-// Ver emails procesados
-GmailApp.search('to:slopezvigo@gmail.com label:Procesado-HubSpot').length
-
-// Ver logs
-Logs → Ctrl+Shift+J
+testEmailSensor();
 ```
-
-### En GitHub Actions
-```
-Actions → Email Sensor → HubSpot Sync
-→ Click en último run para ver logs
-```
-
-### En HubSpot
-```
-Contactos: source = "email_sensor_slopezvigo"
-Deals: pipeline = "Visual Trans 2026"
-Tickets: category = "incoming_email"
-```
-
----
-
-## 🛠️ Troubleshooting
-
-### ❌ "GITHUB_WEBHOOK_URL no configurada"
-**Solución:** Ve a Google Apps Script → Project Settings → Properties y configura GITHUB_WEBHOOK_URL
-
-### ❌ "HUBSPOT_API_KEY not found"
-**Solución:** Agrega secret en GitHub Settings → Secrets
-
-### ❌ Workflow no se dispara
-**Solución:** Verifica GitHub Token tiene scope `workflow`
-
-### ❌ Email duplicado en HubSpot
-**Solución:** Marca manualmente el email con label `Procesado-HubSpot` en Gmail
-
-Ver más en [SETUP_GUIDE.md](docs/SETUP_GUIDE.md#-troubleshooting)
 
 ---
 
 ## 📞 Soporte
 
-### Logs
-- **Google Apps Script**: Ctrl+Shift+J
-- **GitHub Actions**: Actions tab → Workflow logs
-- **HubSpot**: Activity timeline en contacto/deal
-
-### Contacto
-- Email: arivas@visualms.com
-- GitHub Issues: [Crear issue](https://github.com/arivas-web/prueba-mailing-aduanas/issues)
-
----
-
-## 📄 License
-
-MIT - Libre para usar, modificar y distribuir
-
----
-
-## 👥 Contributors
-
-- Visual Trans Automation Team
-- Powered by Claude Code
+- Logs de Google Apps Script: Ctrl+Shift+J en el editor
+- Logs de GitHub Actions: pestaña **Actions** del repositorio
+- Documentación: `docs/SETUP_GUIDE.md`, `docs/GOOGLE_APPS_SCRIPT_SETUP.md`
 
 ---
 
 **Última actualización:** 2026-09-25
-**Versión:** 1.0.0
-**Status:** ✅ Production Ready
+**Versión:** 2.0.0 — Solo genera borrador de email (sin CRM)

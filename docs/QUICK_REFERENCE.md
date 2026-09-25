@@ -10,7 +10,7 @@ Una guía rápida para operaciones comunes.
 ```javascript
 // Google Apps Script Console
 // 1. Verificar emails pendientes
-GmailApp.search('to:slopezvigo@gmail.com -label:Procesado-HubSpot').length
+GmailApp.search('to:arivas@visualtrans.com -label:Procesado-HubSpot-AEAT').length
 
 // 2. Ejecutar check manual
 checkNewEmails();
@@ -28,7 +28,7 @@ checkNewEmails();
 ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
 
 // 2. Eliminar label
-const label = GmailApp.getUserLabelByName('Procesado-HubSpot');
+const label = GmailApp.getUserLabelByName('Procesado-HubSpot-AEAT');
 GmailApp.getInboxThreads().forEach(t => label.removeFromThread(t));
 
 // 3. Re-setup
@@ -41,7 +41,7 @@ setupEmailSensor();
 
 ### Ver emails pendientes
 ```javascript
-const threads = GmailApp.search('to:slopezvigo@gmail.com -label:Procesado-HubSpot');
+const threads = GmailApp.search('to:arivas@visualtrans.com -label:Procesado-HubSpot-AEAT');
 Logger.log('Pendientes: ' + threads.length);
 
 threads.forEach(t => {
@@ -52,14 +52,14 @@ threads.forEach(t => {
 
 ### Ver emails procesados
 ```javascript
-const threads = GmailApp.search('to:slopezvigo@gmail.com label:Procesado-HubSpot');
+const threads = GmailApp.search('to:arivas@visualtrans.com label:Procesado-HubSpot-AEAT');
 Logger.log('Procesados: ' + threads.length);
 ```
 
 ### Marcar email como procesado
 ```javascript
 const threads = GmailApp.search('from:cliente@example.com subject:algo');
-const label = GmailApp.getUserLabelByName('Procesado-HubSpot');
+const label = GmailApp.getUserLabelByName('Procesado-HubSpot-AEAT');
 
 threads.forEach(t => {
   label.addToThread(t);
@@ -70,7 +70,7 @@ threads.forEach(t => {
 ### Marcar email como pendiente
 ```javascript
 const threads = GmailApp.search('from:cliente@example.com');
-const label = GmailApp.getUserLabelByName('Procesado-HubSpot');
+const label = GmailApp.getUserLabelByName('Procesado-HubSpot-AEAT');
 
 threads.forEach(t => {
   label.removeFromThread(t);
@@ -98,7 +98,7 @@ gh workflow run email-to-hubspot.yml \
     "timestamp": "2026-09-25T10:00:00Z",
     "from": "test@example.com",
     "subject": "Test Email",
-    "to": "slopezvigo@gmail.com",
+    "to": "arivas@visualtrans.com",
     "cc": "",
     "plainText": "Este es un test",
     "htmlBody": "<p>Este es un test</p>",
@@ -129,7 +129,7 @@ gh run view --web
 ### Ver contactos creados por sensor
 ```
 Contactos → Filtros
-Agregar: Source is exactly "email_sensor_slopezvigo"
+Agregar: Source is exactly "email_sensor_arivas-aeat"
 ```
 
 ### Ver deals en Visual Trans 2026
@@ -166,7 +166,7 @@ if (DEBUG) Logger.log('Debug info: ' + data);
 ### Ver estructura del email recibido
 ```javascript
 function debugEmail() {
-  const threads = GmailApp.search('to:slopezvigo@gmail.com -label:Procesado-HubSpot', 0, 1);
+  const threads = GmailApp.search('to:arivas@visualtrans.com -label:Procesado-HubSpot-AEAT', 0, 1);
   
   if (threads.length === 0) {
     Logger.log('No hay emails');
@@ -197,7 +197,7 @@ curl -X POST https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/disp
         "subject": "Test",
         "timestamp": "2026-09-25T10:00:00Z",
         "plainText": "Test body",
-        "to": "slopezvigo@gmail.com"
+        "to": "arivas@visualtrans.com"
       }
     }
   }'
@@ -212,15 +212,15 @@ curl -X POST https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/disp
 const today = new Date();
 const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-const threads = GmailApp.search(`to:slopezvigo@gmail.com label:Procesado-HubSpot after:${Math.floor(startOfDay.getTime()/1000)}`);
+const threads = GmailApp.search(`to:arivas@visualtrans.com label:Procesado-HubSpot-AEAT after:${Math.floor(startOfDay.getTime()/1000)}`);
 
 Logger.log('📊 Emails hoy: ' + threads.length);
 ```
 
 ### Tasa de procesamiento
 ```javascript
-const all = GmailApp.search('to:slopezvigo@gmail.com').length;
-const processed = GmailApp.search('to:slopezvigo@gmail.com label:Procesado-HubSpot').length;
+const all = GmailApp.search('to:arivas@visualtrans.com').length;
+const processed = GmailApp.search('to:arivas@visualtrans.com label:Procesado-HubSpot-AEAT').length;
 const pending = all - processed;
 
 Logger.log(`

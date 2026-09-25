@@ -38,7 +38,7 @@ Guía paso a paso para configurar el Google Apps Script.
 
 ### 2.2 Crear Nuevo Script
 1. Click en **Nuevo proyecto** (o ➕)
-2. Nombre: `Email Sensor slopezvigo`
+2. Nombre: `Email Sensor arivas-aeat`
 3. Click en el icono de proyecto (arriba) → Rename
 4. Confirma
 
@@ -75,8 +75,9 @@ Agrega estas propiedades (Tipo: SCRIPTS):
 | Propiedad | Valor | Descripción |
 |-----------|-------|-------------|
 | `GITHUB_WEBHOOK_URL` | https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches | URL del webhook de GitHub |
+| `GITHUB_TOKEN` | (tu Personal Access Token de GitHub) | Se envía como header `Authorization` al webhook |
 | `DRIVE_FOLDER_ID` | (opcional) | ID de carpeta Drive para adjuntos |
-| `ADMIN_EMAIL` | arivas@visualms.com | Email para notificaciones |
+| `ADMIN_EMAIL` | arivas@visualtrans.com | Email para notificaciones |
 
 **Cómo obtener DRIVE_FOLDER_ID:**
 1. Ve a Google Drive
@@ -132,12 +133,12 @@ En **Proyecto → Editor**, se debería ver:
 ## Paso 6: Crear Label en Gmail
 
 ### 6.1 Abrir Gmail
-- URL: https://mail.google.com/ (con la cuenta slopezvigo@gmail.com)
+- URL: https://mail.google.com/ (con la cuenta arivas@visualtrans.com)
 
 ### 6.2 Crear Label
 1. Click en **Etiquetas** (abajo a la izquierda)
 2. Click en **Crear etiqueta nueva**
-3. Nombre: `Procesado-HubSpot`
+3. Nombre: `Procesado-HubSpot-AEAT`
 4. No seleccionar subcarpeta
 5. Click **Crear**
 
@@ -153,7 +154,7 @@ function createLabelIfNotExists(labelName) {
   }
 }
 
-// Ejecuta: createLabelIfNotExists('Procesado-HubSpot')
+// Ejecuta: createLabelIfNotExists('Procesado-HubSpot-AEAT')
 ```
 
 ---
@@ -171,42 +172,26 @@ function createLabelIfNotExists(labelName) {
 6. **COPIA el token** (no lo podrás ver después)
 7. Guárdalo en un lugar seguro
 
-### 7.2 Construir Webhook URL
-La URL será:
+### 7.2 Webhook URL
+La URL es siempre la misma (sin token dentro):
 ```
 https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches
 ```
 
-Pero necesitamos pasarle el token. Hay 2 opciones:
+El token se envía como **header `Authorization`** (así ya está implementado en
+`EmailSensor.gs` — no hace falta tocar el código):
 
-**Opción A: En la URL (simple pero menos seguro)**
-```
-https://TU_TOKEN@api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches
-```
-Ejemplo:
-```
-https://ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches
-```
-
-**Opción B: En Headers (más seguro)**
 ```javascript
-// Modificar EmailSensor.gs función sendToGitHubWebhook()
-
-const options = {
-  method: 'post',
-  headers: {
-    'Authorization': 'token ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-    'X-GitHub-Api-Version': '2022-11-28',
-  },
-  payload: JSON.stringify(payload),
-  muteHttpExceptions: true,
-};
+headers: {
+  Authorization: 'token ' + CONFIG.GITHUB_TOKEN,
+  Accept: 'application/vnd.github.v3+json',
+},
 ```
 
 ### 7.3 Actualizar Google Apps Script Properties
 En **Proyecto → Propiedades de secuencias de comandos**:
-- Clave: `GITHUB_WEBHOOK_URL`
-- Valor: (la URL construida arriba)
+- Clave: `GITHUB_WEBHOOK_URL` → Valor: `https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches`
+- Clave: `GITHUB_TOKEN` → Valor: el token generado en el paso 7.1
 
 ---
 
@@ -239,7 +224,7 @@ checkNewEmails();
 #### Test 3: Enviar Email de Prueba
 1. Abre otro navegador o ventana privada
 2. Ve a https://mail.google.com/ (login si es necesario)
-3. Envía email a: `slopezvigo@gmail.com`
+3. Envía email a: `arivas@visualtrans.com`
    - Asunto: "Test Email Sensor"
    - Cuerpo: "Este es un email de prueba"
 4. Espera 5 minutos (o ejecuta checkNewEmails() manualmente)
@@ -255,7 +240,7 @@ checkNewEmails();
 
 ### 9.2 Buscar Contacto
 1. Ve a **CRM → Contactos**
-2. Busca por: source = "email_sensor_slopezvigo"
+2. Busca por: source = "email_sensor_arivas-aeat"
 3. Deberías ver tu email de prueba
 
 ### 9.3 Buscar Deal
@@ -282,14 +267,14 @@ checkNewEmails();
 **Solución:**
 1. Crea manualmente en Gmail:
    - Settings → Labels → Create new label
-   - Nombre: `Procesado-HubSpot`
+   - Nombre: `Procesado-HubSpot-AEAT`
 
 ### ❌ El email no se detecta
 **Solución:**
-1. Verifica que el email llegó a slopezvigo@gmail.com
+1. Verifica que el email llegó a arivas@visualtrans.com
 2. Ejecuta: `checkNewEmails()` manualmente
 3. Revisa Logs (Ctrl+Shift+J)
-4. Verifica que NO tiene label "Procesado-HubSpot"
+4. Verifica que NO tiene label "Procesado-HubSpot-AEAT"
 
 ### ❌ Webhook no funciona
 **Solución:**
@@ -298,7 +283,8 @@ checkNewEmails();
 3. Intenta test con curl:
 ```bash
 curl -X POST \
-  "https://YOUR_TOKEN@api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches" \
+  "https://api.github.com/repos/arivas-web/prueba-mailing-aduanas/dispatches" \
+  -H "Authorization: token TU_GITHUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"event_type":"email_received"}'
 ```

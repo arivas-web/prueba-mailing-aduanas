@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Script de sincronización: Email → HubSpot
- * Procesa emails recibidos en slopezvigo@gmail.com y los crea/actualiza en HubSpot
+ * Script de sincronización: Email AEAT → Borrador HubSpot
+ *
+ * Cuando llega un email a arivas@visualtrans.com con "correo aeat" en el asunto,
+ * este script clona la plantilla de HubSpot "Visual Trans 2026" y pega el
+ * contenido del email TAL CUAL en el borrador resultante.
+ *
+ * NO crea contactos, deals ni tickets. Solo genera el borrador del email.
+ * El envío final lo hace la persona manualmente desde HubSpot.
  */
 
 const axios = require('axios');
@@ -12,19 +18,27 @@ const config = {
   hubspotApiKey: process.env.HUBSPOT_API_KEY,
   hubspotPortalId: process.env.HUBSPOT_PORTAL_ID,
   templateName: process.env.HUBSPOT_TEMPLATE_NAME || 'Visual Trans 2026',
+  // Nombre del módulo de contenido (rich text / HTML) dentro de la plantilla
+  // donde se pega el cuerpo del email. Ajustar según cómo esté montada
+  // la plantilla real en HubSpot.
+  bodyWidgetName: process.env.HUBSPOT_BODY_WIDGET_NAME || 'email_body',
   testMode: process.env.TEST_MODE === 'true',
   testEmailJson: process.env.TEST_EMAIL_JSON,
 };
 
 const HUBSPOT_API_URL = 'https://api.hubapi.com';
 
+const hubspotHeaders = () => ({
+  Authorization: `Bearer ${config.hubspotApiKey}`,
+  'Content-Type': 'application/json',
+});
+
 // ==================== LOGGING ====================
 const log = {
   info: (msg) => console.log(`[INFO] ${msg}`),
-  success: (msg) => console.log(`✅ ${msg}`),
-  error: (msg) => console.error(`❌ ${msg}`),
-  warn: (msg) => console.warn(`⚠️ ${msg}`),
-  debug: (msg) => process.env.DEBUG && console.log(`[DEBUG] ${msg}`),
+  success: (msg) => console.log(`OK: ${msg}`),
+  error: (msg) => console.error(`ERROR: ${msg}`),
+  warn: (msg) => console.warn(`WARN: ${msg}`),
 };
 
 // ==================== VALIDACIÓN ====================
@@ -32,12 +46,7 @@ function validateConfig() {
   if (!config.hubspotApiKey) {
     throw new Error('HUBSPOT_API_KEY no está configurada');
   }
-
-  if (!config.hubspotPortalId) {
-    throw new Error('HUBSPOT_PORTAL_ID no está configurada');
-  }
-
-  log.info('✅ Configuración validada');
+  log.info('Configuración validada');
 }
 
 // ==================== OBTENER EMAIL ====================
@@ -45,7 +54,7 @@ function getEmailData() {
   let emailData;
 
   if (config.testMode && config.testEmailJson) {
-    log.info('🧪 Modo TEST - usando email de ejemplo');
+    log.info('Modo TEST - usando email de ejemplo');
     emailData = JSON.parse(config.testEmailJson);
   } else {
     const emailJson = process.env.EMAIL_DATA;
@@ -59,365 +68,133 @@ function getEmailData() {
     throw new Error('Email inválido: falta subject o from');
   }
 
+  // Filtro de seguridad: solo se procesan emails de AEAT
+  const subjectLower = (emailData.subject || '').toLowerCase();
+  if (subjectLower.indexOf('correo aeat') === -1) {
+    throw new Error(`El asunto no contiene "correo aeat": "${emailData.subject}"`);
+  }
+
   return emailData;
 }
 
-// ==================== CREAR/ACTUALIZAR CONTACT EN HUBSPOT ====================
-async function upsertContact(email) {
-  log.info(`📧 Creando/actualizando contacto: ${email.from}`);
+// ==================== BUSCAR PLANTILLA EN HUBSPOT ====================
+async function findTemplateEmail() {
+  log.info(`Buscando plantilla "${config.templateName}" en HubSpot`);
 
-  // Extraer nombre y email del campo "from"
-  const fromMatch = email.from.match(/(.+?)\s*<(.+?)>/);
-  const contactName = fromMatch ? fromMatch[1].trim() : email.from;
-  const contactEmail = fromMatch ? fromMatch[2].trim() : email.from;
+  const response = await axios.get(`${HUBSPOT_API_URL}/marketing/v3/emails`, {
+    headers: hubspotHeaders(),
+    params: { limit: 100 },
+  });
 
-  const contactPayload = {
-    properties: [
-      {
-        name: 'email',
-        value: contactEmail,
-      },
-      {
-        name: 'firstname',
-        value: contactName.split(' ')[0],
-      },
-      {
-        name: 'lastname',
-        value: contactName.split(' ').slice(1).join(' ') || '',
-      },
-      {
-        name: 'source',
-        value: 'email_sensor_slopezvigo',
-      },
-      {
-        name: 'hs_lead_status',
-        value: 'new',
-      },
-    ],
-  };
-
-  try {
-    const response = await axios.post(
-      `${HUBSPOT_API_URL}/crm/v3/objects/contacts`,
-      contactPayload,
-      {
-        headers: {
-          Authorization: `Bearer ${config.hubspotApiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const contactId = response.data.id;
-    log.success(`Contacto creado/actualizado: ${contactId}`);
-    return contactId;
-
-  } catch (error) {
-    if (error.response?.status === 409) {
-      log.warn('Contacto ya existe, buscando por email...');
-      return await getContactByEmail(contactEmail);
-    }
-    throw error;
-  }
-}
-
-// ==================== BUSCAR CONTACTO POR EMAIL ====================
-async function getContactByEmail(email) {
-  log.info(`🔍 Buscando contacto por email: ${email}`);
-
-  try {
-    const response = await axios.get(
-      `${HUBSPOT_API_URL}/crm/v3/objects/contacts`,
-      {
-        params: {
-          limit: 1,
-          'filter.filterGroups[0].filters[0].propertyName': 'email',
-          'filter.filterGroups[0].filters[0].operator': 'EQ',
-          'filter.filterGroups[0].filters[0].value': email,
-        },
-        headers: {
-          Authorization: `Bearer ${config.hubspotApiKey}`,
-        },
-      }
-    );
-
-    if (response.data.results.length > 0) {
-      const contactId = response.data.results[0].id;
-      log.success(`Contacto encontrado: ${contactId}`);
-      return contactId;
-    }
-
-    log.warn('Contacto no encontrado, creando nuevo...');
-    return await createNewContact(email);
-
-  } catch (error) {
-    log.error('Error buscando contacto: ' + error.message);
-    throw error;
-  }
-}
-
-// ==================== CREAR NUEVO CONTACTO ====================
-async function createNewContact(email) {
-  const payload = {
-    properties: [
-      {
-        name: 'email',
-        value: email,
-      },
-      {
-        name: 'source',
-        value: 'email_sensor_slopezvigo',
-      },
-    ],
-  };
-
-  const response = await axios.post(
-    `${HUBSPOT_API_URL}/crm/v3/objects/contacts`,
-    payload,
-    {
-      headers: {
-        Authorization: `Bearer ${config.hubspotApiKey}`,
-        'Content-Type': 'application/json',
-      },
-    }
+  const match = (response.data.results || []).find(
+    (e) => e.name === config.templateName
   );
 
-  return response.data.id;
+  if (!match) {
+    throw new Error(
+      `No se encontró ninguna plantilla/email llamado "${config.templateName}" en HubSpot`
+    );
+  }
+
+  log.success(`Plantilla encontrada: ${match.id}`);
+  return match;
 }
 
-// ==================== CREAR DEAL (OPORTUNIDAD) ====================
-async function createDeal(contactId, email) {
-  log.info(`Deal en BORRADOR para contacto: ${contactId}`);
+// ==================== CLONAR PLANTILLA (BORRADOR) ====================
+async function cloneTemplateEmail(templateEmail, email) {
+  const cloneName = `[AEAT] ${email.subject} - ${email.timestamp}`;
+  log.info(`Clonando plantilla como borrador: "${cloneName}"`);
 
-  const dealPayload = {
-    properties: [
-      {
-        name: 'dealname',
-        value: `[BORRADOR] Email: ${email.subject.substring(0, 50)}`,
-      },
-      {
-        name: 'dealstage',
-        value: 'qualifiedtobuy',
-      },
-      {
-        name: 'pipeline',
-        value: config.templateName,
-      },
-      {
-        name: 'description',
-        value: `
-ESTADO: BORRADOR - REVISAR Y COMPLETAR MANUALMENTE
+  const response = await axios.post(
+    `${HUBSPOT_API_URL}/marketing/v3/emails/${templateEmail.id}/clone`,
+    { name: cloneName },
+    { headers: hubspotHeaders() }
+  );
 
-Email recibido de: ${email.from}
-Asunto: ${email.subject}
-Fecha: ${email.timestamp}
-
----
-
-${email.plainText || email.htmlBody}
-
----
-Este deal fue creado automáticamente como BORRADOR desde el email.
-Revisa el contenido y completalo cuando esté listo.
-        `.trim(),
-      },
-      {
-        name: 'num_associated_contacts',
-        value: '1',
-      },
-    ],
-  };
-
-  try {
-    const dealResponse = await axios.post(
-      `${HUBSPOT_API_URL}/crm/v3/objects/deals`,
-      dealPayload,
-      {
-        headers: {
-          Authorization: `Bearer ${config.hubspotApiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const dealId = dealResponse.data.id;
-    log.success(`Deal creado: ${dealId}`);
-
-    // Asociar Deal al Contacto
-    await associateDealToContact(dealId, contactId);
-
-    return dealId;
-
-  } catch (error) {
-    log.error('Error creando Deal: ' + error.message);
-    throw error;
-  }
+  log.success(`Borrador creado: ${response.data.id}`);
+  return response.data;
 }
 
-// ==================== ASOCIAR DEAL A CONTACTO ====================
-async function associateDealToContact(dealId, contactId) {
-  log.info(`🔗 Asociando Deal ${dealId} a Contacto ${contactId}`);
+// ==================== PEGAR EL EMAIL TAL CUAL EN EL BORRADOR ====================
+async function fillDraftWithEmailContent(clonedEmail, email) {
+  log.info(`Rellenando borrador ${clonedEmail.id} con el contenido del email`);
 
-  const payload = {
-    inputs: [
-      {
-        id: dealId,
-        types: ['deals_to_contact'],
-        to: {
-          id: contactId,
-        },
-      },
-    ],
+  const fullEmail = await axios.get(
+    `${HUBSPOT_API_URL}/marketing/v3/emails/${clonedEmail.id}`,
+    { headers: hubspotHeaders() }
+  );
+
+  const content = fullEmail.data.content || {};
+  const widgets = content.widgets || {};
+
+  if (widgets[config.bodyWidgetName]) {
+    widgets[config.bodyWidgetName].body = widgets[config.bodyWidgetName].body || {};
+    widgets[config.bodyWidgetName].body.html = buildEmailHtml(email);
+  } else {
+    log.warn(
+      `No se encontró el módulo "${config.bodyWidgetName}" en la plantilla. ` +
+      `El borrador se creó pero hay que pegar el contenido manualmente. ` +
+      `Ajusta HUBSPOT_BODY_WIDGET_NAME al nombre real del módulo de la plantilla.`
+    );
+  }
+
+  const updatePayload = {
+    subject: email.subject,
+    content: { ...content, widgets },
   };
 
-  try {
-    await axios.post(
-      `${HUBSPOT_API_URL}/crm/v4/objects/deals/batch/associate`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${config.hubspotApiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+  await axios.patch(
+    `${HUBSPOT_API_URL}/marketing/v3/emails/${clonedEmail.id}`,
+    updatePayload,
+    { headers: hubspotHeaders() }
+  );
 
-    log.success('Deal asociado a Contacto');
-  } catch (error) {
-    log.warn('Error asociando Deal: ' + error.message);
-    // No fallamos por esto, continuamos
-  }
+  log.success('Contenido del email pegado en el borrador');
 }
 
-// ==================== CREAR TICKET (NOTA) ====================
-async function createTicket(contactId, email) {
-  log.info(`🎫 Creando Ticket para email: ${email.subject}`);
-
-  const ticketPayload = {
-    properties: [
-      {
-        name: 'subject',
-        value: `[BORRADOR] ${email.subject}`,
-      },
-      {
-        name: 'content',
-        value: `
-ESTADO: BORRADOR - REVISAR Y ENVIAR MANUALMENTE
-
-De: ${email.from}
-Para: ${email.to}
-CC: ${email.cc || 'N/A'}
-Fecha: ${email.timestamp}
-
----
-
-${email.plainText || email.htmlBody}
-        `.trim(),
-      },
-      {
-        name: 'hs_ticket_priority',
-        value: 'medium',
-      },
-      {
-        name: 'hs_ticket_category',
-        value: 'incoming_email',
-      },
-    ],
-  };
-
-  try {
-    const ticketResponse = await axios.post(
-      `${HUBSPOT_API_URL}/crm/v3/objects/tickets`,
-      ticketPayload,
-      {
-        headers: {
-          Authorization: `Bearer ${config.hubspotApiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const ticketId = ticketResponse.data.id;
-    log.success(`Ticket creado: ${ticketId}`);
-
-    // Asociar Ticket al Contacto
-    await associateTicketToContact(ticketId, contactId);
-
-    return ticketId;
-
-  } catch (error) {
-    log.warn('Error creando Ticket: ' + error.message);
-    // No fallamos por esto
+function buildEmailHtml(email) {
+  // Se pega el email tal cual: si hay HTML original, se usa directamente.
+  if (email.htmlBody) {
+    return email.htmlBody;
   }
+  return `<pre>${escapeHtml(email.plainText || '')}</pre>`;
 }
 
-// ==================== ASOCIAR TICKET A CONTACTO ====================
-async function associateTicketToContact(ticketId, contactId) {
-  const payload = {
-    inputs: [
-      {
-        id: ticketId,
-        types: ['tickets_to_contact'],
-        to: {
-          id: contactId,
-        },
-      },
-    ],
-  };
-
-  try {
-    await axios.post(
-      `${HUBSPOT_API_URL}/crm/v4/objects/tickets/batch/associate`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${config.hubspotApiKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    log.success('Ticket asociado a Contacto');
-  } catch (error) {
-    log.warn('Error asociando Ticket: ' + error.message);
-  }
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 // ==================== FUNCIÓN PRINCIPAL ====================
 async function main() {
   try {
-    log.info('🚀 Iniciando sincronización Email → HubSpot');
+    log.info('Iniciando: Email AEAT -> Borrador HubSpot');
     log.info(`Modo: ${config.testMode ? 'TEST' : 'PRODUCCIÓN'}`);
 
     validateConfig();
     const emailData = getEmailData();
 
-    log.info(`📨 Procesando email:`);
+    log.info(`Procesando email:`);
     log.info(`  Asunto: ${emailData.subject}`);
     log.info(`  De: ${emailData.from}`);
 
-    // 1. Crear/actualizar contacto
-    const contactId = await upsertContact(emailData);
+    const templateEmail = await findTemplateEmail();
+    const clonedEmail = await cloneTemplateEmail(templateEmail, emailData);
+    await fillDraftWithEmailContent(clonedEmail, emailData);
 
-    // 2. Crear Deal
-    const dealId = await createDeal(contactId, emailData);
+    log.success('Borrador generado en HubSpot. NO se ha enviado.');
+    log.info(`Email (borrador) ID: ${clonedEmail.id}`);
+    if (config.hubspotPortalId) {
+      log.info(
+        `Editar en: https://app.hubspot.com/email/${config.hubspotPortalId}/edit/${clonedEmail.id}`
+      );
+    }
+    log.info('ACCION REQUERIDA: revisa el borrador en HubSpot y envíalo tú manualmente.');
 
-    // 3. Crear Ticket
-    const ticketId = await createTicket(contactId, emailData);
-
-    // 4. Log final
-    log.success('Sincronización completada - Borradores creados');
-    log.info(`Resultados (BORRADORES - Revisar y Enviar):`);
-    log.info(`  - Contact ID: ${contactId}`);
-    log.info(`  - Deal ID (BORRADOR): ${dealId}`);
-    log.info(`  - Ticket ID (BORRADOR): ${ticketId}`);
-    log.info(``);
-    log.info(`ACCION REQUERIDA: Revisa en HubSpot y completa/envía los borradores`);
-
-    // Salida para GitHub Actions
     console.log(`::set-output name=email_subject::${emailData.subject}`);
-    console.log(`::set-output name=contact_id::${contactId}`);
-    console.log(`::set-output name=deal_id::${dealId}`);
+    console.log(`::set-output name=hubspot_email_id::${clonedEmail.id}`);
 
     process.exit(0);
 
@@ -430,9 +207,8 @@ async function main() {
   }
 }
 
-// ==================== EJECUTAR ====================
 if (require.main === module) {
   main();
 }
 
-module.exports = { upsertContact, createDeal, getContactByEmail };
+module.exports = { findTemplateEmail, cloneTemplateEmail, fillDraftWithEmailContent };
