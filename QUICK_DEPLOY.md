@@ -110,8 +110,13 @@ Deberías ver: `✅ Sistema completamente configurado`
 #    Deberías ver el contacto creado automáticamente
 
 # 4. Abre el contacto y verifica:
-#    ✅ Deal en "Visual Trans 2026"
-#    ✅ Ticket con contenido del email
+#    ✅ Deal en BORRADOR en "Visual Trans 2026"
+#    ✅ Ticket en BORRADOR con contenido del email
+
+# 5. Revisa los borradores en HubSpot:
+#    - Edita si necesario
+#    - Completa la información
+#    - TÚ ENVÍAS/PUBLICAS cuando esté listo
 ```
 
 ---

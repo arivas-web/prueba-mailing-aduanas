@@ -187,17 +187,17 @@ async function createNewContact(email) {
 
 // ==================== CREAR DEAL (OPORTUNIDAD) ====================
 async function createDeal(contactId, email) {
-  log.info(`💼 Creando Deal para contacto: ${contactId}`);
+  log.info(`Deal en BORRADOR para contacto: ${contactId}`);
 
   const dealPayload = {
     properties: [
       {
         name: 'dealname',
-        value: `Email: ${email.subject.substring(0, 50)}`,
+        value: `[BORRADOR] Email: ${email.subject.substring(0, 50)}`,
       },
       {
         name: 'dealstage',
-        value: 'negotiation',
+        value: 'qualifiedtobuy',
       },
       {
         name: 'pipeline',
@@ -206,6 +206,8 @@ async function createDeal(contactId, email) {
       {
         name: 'description',
         value: `
+ESTADO: BORRADOR - REVISAR Y COMPLETAR MANUALMENTE
+
 Email recibido de: ${email.from}
 Asunto: ${email.subject}
 Fecha: ${email.timestamp}
@@ -213,6 +215,10 @@ Fecha: ${email.timestamp}
 ---
 
 ${email.plainText || email.htmlBody}
+
+---
+Este deal fue creado automáticamente como BORRADOR desde el email.
+Revisa el contenido y completalo cuando esté listo.
         `.trim(),
       },
       {
@@ -291,15 +297,17 @@ async function createTicket(contactId, email) {
     properties: [
       {
         name: 'subject',
-        value: email.subject,
+        value: `[BORRADOR] ${email.subject}`,
       },
       {
         name: 'content',
         value: `
-**De:** ${email.from}
-**Para:** ${email.to}
-**CC:** ${email.cc || 'N/A'}
-**Fecha:** ${email.timestamp}
+ESTADO: BORRADOR - REVISAR Y ENVIAR MANUALMENTE
+
+De: ${email.from}
+Para: ${email.to}
+CC: ${email.cc || 'N/A'}
+Fecha: ${email.timestamp}
 
 ---
 
@@ -398,11 +406,13 @@ async function main() {
     const ticketId = await createTicket(contactId, emailData);
 
     // 4. Log final
-    log.success('✨ Sincronización completada exitosamente');
-    log.info(`Resultados:`);
+    log.success('Sincronización completada - Borradores creados');
+    log.info(`Resultados (BORRADORES - Revisar y Enviar):`);
     log.info(`  - Contact ID: ${contactId}`);
-    log.info(`  - Deal ID: ${dealId}`);
-    log.info(`  - Ticket ID: ${ticketId}`);
+    log.info(`  - Deal ID (BORRADOR): ${dealId}`);
+    log.info(`  - Ticket ID (BORRADOR): ${ticketId}`);
+    log.info(``);
+    log.info(`ACCION REQUERIDA: Revisa en HubSpot y completa/envía los borradores`);
 
     // Salida para GitHub Actions
     console.log(`::set-output name=email_subject::${emailData.subject}`);

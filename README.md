@@ -132,9 +132,9 @@ Responsabilidades:
 Responsabilidades:
 - Procesar datos del email
 - Crear/actualizar contacto en HubSpot
-- Crear deal en "Visual Trans 2026"
-- Crear ticket asociado
-- Asociar todas las entidades
+- Crear deal en BORRADOR en "Visual Trans 2026"
+- Crear ticket en BORRADOR asociado
+- TÚ revisa, completas y envías en HubSpot
 
 ---
 
